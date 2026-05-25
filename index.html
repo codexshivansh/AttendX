@@ -9,15 +9,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-SK67NQX80S"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-SK67NQX80S');
-</script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SK67NQX80S"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-SK67NQX80S');
+    </script>
     
     <style>
         /* ==========================================================================
@@ -85,6 +83,12 @@
             border-radius: 20px;
             box-shadow: var(--card-shadow);
         }
+
+        /* Status text utility helpers */
+        .text-excellent { color: var(--color-excellent); }
+        .text-safe { color: var(--color-safe); }
+        .text-warning { color: var(--color-warning); }
+        .text-danger { color: var(--color-danger); }
 
         /* ==========================================================================
            3. NAVBAR
@@ -188,6 +192,7 @@
             gap: 1.5rem;
             padding: 1.5rem;
             text-align: center;
+            position: relative;
         }
 
         @media (min-width: 480px) {
@@ -233,6 +238,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            position: relative;
         }
 
         .card-title {
@@ -259,7 +265,7 @@
         }
 
         /* ==========================================================================
-           5. FORMS & INPUTS (BUG FIXED HERE)
+           5. FORMS & INPUTS
            ========================================================================== */
         .panel-heading {
             font-size: 1.15rem;
@@ -300,14 +306,12 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
-        /* Date picker specific reset to avoid overlaps */
         input[type="date"] {
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        /* FIXED: Calendar icon is now positioned perfectly to the right */
         input[type="date"]::-webkit-calendar-picker-indicator {
             background-color: transparent;
             cursor: pointer;
@@ -340,6 +344,11 @@
             justify-content: center;
             gap: 0.5rem;
             box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .btn-secondary {
@@ -480,6 +489,10 @@
             animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
+        .toast.toast-success { border-left-color: var(--color-excellent); }
+        .toast.toast-danger { border-left-color: var(--color-danger); }
+        .toast.toast-info { border-left-color: var(--color-safe); }
+
         @keyframes slideUp {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -552,7 +565,7 @@
         <aside class="sidebar-controls">
             <div class="glass-panel card" style="padding: 1.5rem;">
                 <h3 class="panel-heading"><i class="fa-solid fa-calendar-plus"></i> Track Attendance</h3>
-                <form id="attendance-form" onsubmit="event.preventDefault();">
+                <form id="attendance-form" onsubmit="handleLogSubmission(event);">
                     <div class="form-group">
                         <label for="entry-date">Session Date</label>
                         <input type="date" id="entry-date" class="form-control" required>
@@ -639,8 +652,7 @@
 
             <div class="glass-panel history-section">
                 <h3 class="panel-heading"><i class="fa-solid fa-clock-rotate-left"></i> Attendance Logs</h3>
-                <div class="table-container" id="history-table-container">
-                    </div>
+                <div class="table-container" id="history-table-container"></div>
             </div>
         </section>
 
@@ -654,53 +666,94 @@
     <div id="toast-container"></div>
 
     <script>
+        // Backend URL config pointing to live Render service
+        const API_BASE_URL = 'https://attendx-backend-tp2d.onrender.com/api/v1/attendance';
+
         const AppState = {
             logs: [],
             theme: 'dark',
 
-            init: function() {
+            // FETCH DATA FROM RENDER BACKEND ON LOAD
+            init: async function() {
+                // Handle theme locally
                 if (localStorage.getItem('attendx_theme')) {
                     this.theme = localStorage.getItem('attendx_theme');
                 }
                 document.documentElement.setAttribute('data-theme', this.theme);
+                initThemeIcon();
 
-                if (localStorage.getItem('attendx_logs')) {
-                    try {
-                        this.logs = JSON.parse(localStorage.getItem('attendx_logs'));
-                    } catch(e) {
-                        this.logs = [];
-                    }
-                } else {
+                showLoader(true);
+                try {
+                    const response = await fetch(API_BASE_URL);
+                    if (!response.ok) throw new Error('Failed to fetch from backend server');
+                    
+                    const result = await response.json();
+                    // Sync backend data array to internal state
+                    this.logs = result.data || result; 
+                } catch(e) {
+                    console.error("Backend error, falling back to local view", e);
+                    showToast("Database connection issue. Showing cached view if any.", "danger");
                     this.logs = [];
+                } finally {
+                    showLoader(false);
+                    refreshUI();
                 }
             },
 
-            saveToStorage: function() {
-                localStorage.setItem('attendx_logs', JSON.stringify(this.logs));
+            // ADD ENTRY TO MONGODB VIA RENDER
+            addLog: async function(date, total, attended) {
+                showLoader(true);
+                try {
+                    const response = await fetch(API_BASE_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            date: date,
+                            totalSlots: parseInt(total),
+                            attendedSlots: parseInt(attended)
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Failed to save to database');
+                    
+                    showToast("Attendance logged to secure database.", "success");
+                    // Reload data from backend to ensure perfect state sync
+                    await this.init(); 
+                } catch (error) {
+                    console.error(error);
+                    showToast("Could not sync data to server.", "danger");
+                    showLoader(false);
+                }
             },
 
-            addLog: function(date, total, attended) {
-                const newEntry = {
-                    id: 'entry-' + Date.now() + Math.random().toString(36).substr(2, 4),
-                    date: date,
-                    total: parseInt(total),
-                    attended: parseInt(attended)
-                };
-                this.logs.unshift(newEntry);
-                this.saveToStorage();
-            },
+            // DELETE LOG FROM MONGODB VIA RENDER
+            deleteLog: async function(id) {
+                showLoader(true);
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        method: 'DELETE'
+                    });
 
-            deleteLog: function(id) {
-                this.logs = this.logs.filter(entry => entry.id !== id);
-                this.saveToStorage();
+                    if (!response.ok) throw new Error('Failed to delete from database');
+
+                    showToast("Record removed from server.", "success");
+                    await this.init();
+                } catch (error) {
+                    console.error(error);
+                    showToast("Delete operation failed.", "danger");
+                    showLoader(false);
+                }
             },
 
             getCalculatedMetrics: function() {
                 let totalConducted = 0;
                 let totalAttended = 0;
                 this.logs.forEach(e => {
-                    totalConducted += e.total;
-                    totalAttended += e.attended;
+                    // Normalize fields depending on API model standard
+                    const conducted = e.totalSlots !== undefined ? e.totalSlots : e.total;
+                    const attended = e.attendedSlots !== undefined ? e.attendedSlots : e.attended;
+                    totalConducted += conducted;
+                    totalAttended += attended;
                 });
                 const percentage = totalConducted > 0 ? ((totalAttended / totalConducted) * 100) : 0;
                 return {
@@ -711,22 +764,12 @@
             }
         };
 
+        // UI Event Hooks
         document.addEventListener("DOMContentLoaded", () => {
             AppState.init();
-            initThemeIcon();
-            
             document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
-            
-            refreshUI();
-
-            setTimeout(() => {
-                const loader = document.getElementById('loader-overlay');
-                loader.style.opacity = '0';
-                loader.style.visibility = 'hidden';
-            }, 500);
 
             document.getElementById('theme-toggle').addEventListener('click', toggleThemeMode);
-            document.getElementById('attendance-form').addEventListener('submit', handleLogSubmission);
             document.getElementById('clear-form-btn').addEventListener('click', () => {
                 document.getElementById('attendance-form').reset();
                 document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
@@ -736,6 +779,17 @@
             document.getElementById('bunk-target-pct').addEventListener('input', runCalculators);
             document.getElementById('target-attain-pct').addEventListener('input', runCalculators);
         });
+
+        function showLoader(visible) {
+            const loader = document.getElementById('loader-overlay');
+            if (visible) {
+                loader.style.opacity = '1';
+                loader.style.visibility = 'visible';
+            } else {
+                loader.style.opacity = '0';
+                loader.style.visibility = 'hidden';
+            }
+        }
 
         function refreshUI() {
             const metrics = AppState.getCalculatedMetrics();
@@ -802,7 +856,10 @@
                     <tbody>`;
 
             AppState.logs.forEach(log => {
-                const ratio = log.total > 0 ? ((log.attended / log.total) * 100).toFixed(0) : 0;
+                const conducted = log.totalSlots !== undefined ? log.totalSlots : log.total;
+                const attended = log.attendedSlots !== undefined ? log.attendedSlots : log.attended;
+                
+                const ratio = conducted > 0 ? ((attended / conducted) * 100).toFixed(0) : 0;
                 let textClass = 'text-danger';
                 if(ratio >= 90) textClass = 'text-excellent';
                 else if(ratio >= 75) textClass = 'text-safe';
@@ -810,15 +867,18 @@
 
                 const opt = { month: 'short', day: 'numeric', year: 'numeric' };
                 const dateParsed = new Date(log.date).toLocaleDateString('en-US', opt);
+                
+                // Use MongoDB database ID (_id) primary key mapping
+                const recordId = log._id || log.id;
 
                 tableHTML += `
                     <tr>
                         <td style="font-weight: 600;">${dateParsed}</td>
-                        <td>${log.total} slots</td>
-                        <td style="color:#a855f7;">${log.attended} slots</td>
+                        <td>${conducted} slots</td>
+                        <td style="color:#a855f7;">${attended} slots</td>
                         <td class="${textClass}" style="font-weight: 700;">${ratio}%</td>
                         <td style="text-align:right; display:flex; justify-content:flex-end;">
-                            <button class="btn-delete" onclick="executeLogDeletion('${log.id}')">
+                            <button class="btn-delete" onclick="executeLogDeletion('${recordId}')">
                                 <i class="fa-regular fa-trash-can"></i>
                             </button>
                         </td>
@@ -830,6 +890,7 @@
         }
 
         function handleLogSubmission(e) {
+            e.preventDefault();
             const dateVal = document.getElementById('entry-date').value;
             const totalVal = parseInt(document.getElementById('total-slots').value);
             const attendedVal = parseInt(document.getElementById('attended-slots').value);
@@ -840,100 +901,100 @@
             }
 
             AppState.addLog(dateVal, totalVal, attendedVal);
-            showToast("Attendance logged successfully.", "success");
-            
-            document.getElementById('total-slots').value = '';
-            document.getElementById('attended-slots').value = '';
-            
-            refreshUI();
+            document.getElementById('attendance-form').reset();
+            document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
         }
 
         function executeLogDeletion(id) {
-            if(confirm("Delete this attendance log?")) {
+            if(confirm("Are you sure you want to delete this record permanently?")) {
                 AppState.deleteLog(id);
-                showToast("Log entry removed permanently.", "info");
-                refreshUI();
             }
         }
 
+        /* Predictive Calculation Engine Logic */
         function runCalculators() {
             const metrics = AppState.getCalculatedMetrics();
-            const A = metrics.totalAttended;
-            const C = metrics.totalConducted;
+            const currentAttended = metrics.totalAttended;
+            const currentConducted = metrics.totalConducted;
+            const currentPct = metrics.percentage;
 
+            // 1. Safe Bunk Calculator
             const bunkTargetInput = document.getElementById('bunk-target-pct').value;
-            const targetBunkPct = parseFloat(bunkTargetInput) / 100;
-            const bunkOutputBox = document.getElementById('bunk-calculator-output');
+            const bunkTarget = bunkTargetInput ? parseInt(bunkTargetInput) : 75;
+            const bunkOutput = document.getElementById('bunk-calculator-output');
 
-            if(!bunkTargetInput || targetBunkPct <= 0 || targetBunkPct >= 1) {
-                bunkOutputBox.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-exclamation"></i> Invalid input value.</span>`;
-            } else if (C === 0) {
-                bunkOutputBox.innerHTML = `<span>Awaiting metric entry profiles.</span>`;
+            if (currentConducted === 0) {
+                bunkOutput.innerHTML = "Add logs to calculate.";
+            } else if (currentPct < bunkTarget) {
+                bunkOutput.innerHTML = `<span style="color:var(--color-danger);"><i class="fa-solid fa-circle-xmark"></i> Cannot bunk! Already below target.</span>`;
             } else {
-                const maxBunkableClasses = Math.floor((A / targetBunkPct) - C);
-                if (maxBunkableClasses >= 0) {
-                    bunkOutputBox.innerHTML = `<span class="text-success"><i class="fa-solid fa-circle-check"></i> Safe to bunk: <strong>${maxBunkableClasses}</strong> classes.</span>`;
+                // Formula: Attended / (Conducted + X) >= Target / 100 => X <= (Attended * 100 / Target) - Conducted
+                let maxBunks = Math.floor((currentAttended * 100 / bunkTarget) - currentConducted);
+                if (maxBunks < 0) maxBunks = 0;
+                
+                if(maxBunks === 0) {
+                    bunkOutput.innerHTML = `<span style="color:var(--color-warning);"><i class="fa-solid fa-triangle-exclamation"></i> On the edge. Next class is mandatory.</span>`;
                 } else {
-                    bunkOutputBox.innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Attendance already below target.</span>`;
+                    bunkOutput.innerHTML = `<span style="color:var(--color-excellent);"><i class="fa-solid fa-circle-check"></i> You can safely bunk next <b>${maxBunks}</b> class(es).</span>`;
                 }
             }
 
+            // 2. Target Achievement Calculator
             const attainTargetInput = document.getElementById('target-attain-pct').value;
-            const targetAttainPct = parseFloat(attainTargetInput) / 100;
-            const attainOutputBox = document.getElementById('target-calculator-output');
+            const attainTarget = attainTargetInput ? parseInt(attainTargetInput) : 75;
+            const attainOutput = document.getElementById('target-calculator-output');
 
-            if(!attainTargetInput || targetAttainPct <= 0 || targetAttainPct >= 1) {
-                attainOutputBox.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-exclamation"></i> Invalid input value.</span>`;
-            } else if (C === 0) {
-                attainOutputBox.innerHTML = `<span>Awaiting metric entry profiles.</span>`;
+            if (currentConducted === 0) {
+                attainOutput.innerHTML = "Add logs to calculate.";
+            } else if (currentPct >= attainTarget) {
+                attainOutput.innerHTML = `<span style="color:var(--color-excellent);"><i class="fa-solid fa-circle-check"></i> Target met! Maintain current momentum.</span>`;
             } else {
-                const netRequiredCurrentPercent = A / C;
-                if (netRequiredCurrentPercent >= targetAttainPct) {
-                    attainOutputBox.innerHTML = `<span class="text-excellent"><i class="fa-solid fa-circle-check"></i> Safe! Target criteria already satisfied.</span>`;
-                } else {
-                    const reqContinuousSessions = Math.ceil(((targetAttainPct * C) - A) / (1 - targetAttainPct));
-                    attainOutputBox.innerHTML = `<span class="text-warning"><i class="fa-solid fa-fire"></i> Attend next <strong>${reqContinuousSessions}</strong> classes non-stop.</span>`;
-                }
+                // Formula: (Attended + Y) / (Conducted + Y) >= Target / 100 => Y >= (Target*Conducted - 100*Attended) / (100 - Target)
+                let requiredClasses = Math.ceil((attainTarget * currentConducted - 100 * currentAttended) / (100 - attainTarget));
+                if (requiredClasses < 0) requiredClasses = 0;
+
+                attainOutput.innerHTML = `<span style="color:var(--color-warning);"><i class="fa-solid fa-circle-arrow-up"></i> Attend next <b>${requiredClasses}</b> class(es) straight.</span>`;
+            }
+        }
+
+        // Notifications Engine
+        function showToast(msg, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            let icon = '<i class="fa-solid fa-circle-info"></i>';
+            if (type === 'success') icon = '<i class="fa-solid fa-circle-check"></i>';
+            if (type === 'danger') icon = '<i class="fa-solid fa-circle-exclamation"></i>';
+
+            toast.innerHTML = `${icon} <span>${msg}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'none'; // reset for fade logic if needed
+                toast.remove();
+            }, 3500);
+        }
+
+        // Theme management UI toggles
+        function initThemeIcon() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.getElementById('theme-toggle').querySelector('i');
+            if(currentTheme === 'light') {
+                icon.className = 'fa-solid fa-sun';
+            } else {
+                icon.className = 'fa-solid fa-moon';
             }
         }
 
         function toggleThemeMode() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const targetTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', targetTheme);
-            AppState.theme = targetTheme;
-            localStorage.setItem('attendx_theme', targetTheme);
-            initThemeIcon();
-            showToast(`Theme switched to ${targetTheme} mode.`, "info");
-        }
-
-        function initThemeIcon() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const icon = document.getElementById('theme-toggle').querySelector('i');
-            icon.className = currentTheme === 'dark' ? "fa-solid fa-sun" : "fa-solid fa-moon";
-        }
-
-        function showToast(message, type = "info") {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast`;
+            let currentTheme = document.documentElement.getAttribute('data-theme');
+            let newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
-            let icon = '<i class="fa-solid fa-circle-info" style="color:#6366f1;"></i>';
-            if(type === "success") {
-                toast.style.borderLeftColor = "var(--color-excellent)";
-                icon = '<i class="fa-solid fa-circle-check" style="color:var(--color-excellent);"></i>';
-            } else if (type === "danger") {
-                toast.style.borderLeftColor = "var(--color-danger)";
-                icon = '<i class="fa-solid fa-circle-exclamation" style="color:var(--color-danger);"></i>';
-            }
-
-            toast.innerHTML = `${icon} <span>${message}</span>`;
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.animation = "slideUp 0.3s reverse ease-in forwards";
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('attendx_theme', newTheme);
+            initThemeIcon();
+            showToast(`Switched to ${newTheme} interface layout.`, "info");
         }
     </script>
 </body>
