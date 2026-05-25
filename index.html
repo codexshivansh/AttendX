@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AttendX — Mobile-First Attendance Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* ==========================================================================
+           1. CSS VARIABLES & THEMES (Premium Startup Aesthetic)
+           ========================================================================== */
+        :root[data-theme="dark"] {
+            --bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #030712 100%);
+            --panel-bg: rgba(17, 24, 39, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            
+            /* Status Colors */
+            --color-excellent: #10b981;
+            --color-safe: #3b82f6;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+        }
+
+        :root[data-theme="light"] {
+            --bg-gradient: radial-gradient(circle at 50% 0%, #f8fafc 0%, #e2e8f0 100%);
+            --panel-bg: rgba(255, 255, 255, 0.75);
+            --panel-border: rgba(0, 0, 0, 0.06);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            --accent-glow: rgba(79, 70, 229, 0.2);
+            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+
+            /* Status Colors */
+            --color-excellent: #059669;
+            --color-safe: #2563eb;
+            --color-warning: #d97706;
+            --color-danger: #dc2626;
+        }
+
+        /* ==========================================================================
+           2. GLOBAL STYLES & RESET
+           ========================================================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding-bottom: 60px;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+        }
+
+        /* ==========================================================================
+           3. NAVBAR
+           ========================================================================== */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width: 100%;
+            padding: 0.8rem 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--panel-border);
+            background: var(--panel-bg);
+        }
+
+        .brand-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-logo {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .brand-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-icon {
+            background: rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        /* ==========================================================================
+           4. MOBILE-FIRST LAYOUT SYSTEM
+           ========================================================================== */
+        .container {
+            max-width: 1400px;
+            margin: 1rem auto;
+            padding: 0 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                display: grid;
+                grid-template-columns: 2.2fr 1fr;
+                margin: 2rem auto;
+                padding: 0 1.5rem;
+            }
+            .dashboard-main { order: 1; }
+            .sidebar-controls { order: 2; }
+        }
+
+        .dashboard-main {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            order: 2;
+        }
+
+        .sidebar-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            order: 1;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .hero-metric-card {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        @media (min-width: 480px) {
+            .hero-metric-card {
+                flex-direction: row;
+                text-align: left;
+                justify-content: space-between;
+                padding: 2rem;
+            }
+        }
+
+        .progress-ring-container {
+            position: relative;
+            width: 130px;
+            height: 130px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .progress-ring-circle {
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .progress-text {
+            position: absolute;
+            font-size: 1.6rem;
+            font-weight: 800;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress-text span {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .card {
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .card-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .card-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.4rem 0.8rem;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        /* ==========================================================================
+           5. FORMS & INPUTS (BUG FIXED HERE)
+           ========================================================================== */
+        .panel-heading {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--panel-border);
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 1rem;
+            font-weight: 600;
+            outline: none;
+            min-height: 48px;
+        }
+
+        .form-control:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Date picker specific reset to avoid overlaps */
+        input[type="date"] {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* FIXED: Calendar icon is now positioned perfectly to the right */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            background-color: transparent;
+            cursor: pointer;
+            filter: invert(0.6) sepia(1) saturate(5) hue-rotate(240deg);
+            padding: 0;
+            margin: 0;
+            width: 24px;
+            height: 24px;
+            opacity: 1;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1.2rem;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            min-height: 48px;
+        }
+
+        /* ==========================================================================
+           6. SMART CALCULATORS
+           ========================================================================== */
+        .calculator-box {
+            margin-top: 0.8rem;
+            padding: 0.9rem;
+            background: rgba(0,0,0,0.15);
+            border-radius: 14px;
+            border: 1px solid var(--panel-border);
+        }
+
+        .calc-result {
+            margin-top: 0.6rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            line-height: 1.3;
+        }
+
+        /* ==========================================================================
+           7. RESPONSIVE LOGS TABLE
+           ========================================================================== */
+        .history-section {
+            padding: 1.2rem;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 12px;
+            background: rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background: rgba(0,0,0,0.2);
+            padding: 0.85rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        td {
+            padding: 0.85rem;
+            border-bottom: 1px solid var(--panel-border);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .btn-delete {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* ==========================================================================
+           8. TOASTS & FOOTER
+           ========================================================================== */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        @media (min-width: 768px) {
+            #toast-container {
+                top: 24px;
+                bottom: auto;
+                left: auto;
+                right: 24px;
+                width: 320px;
+            }
+        }
+
+        .toast {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border-left: 4px solid #6366f1;
+            padding: 0.9rem 1.2rem;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .footer {
+            width: 100%;
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 2rem;
+            border-top: 1px solid var(--panel-border);
+        }
+
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        #loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: #030712;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <nav class="navbar glass-panel">
+        <div class="brand-box">
+            <span class="brand-logo">AttendX</span>
+            <span class="brand-subtitle">Made by Shivansh Gupta</span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn-icon" id="theme-toggle" title="Toggle Theme">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="container">
+        
+        <aside class="sidebar-controls">
+            <div class="glass-panel card" style="padding: 1.5rem;">
+                <h3 class="panel-heading"><i class="fa-solid fa-calendar-plus"></i> Track Attendance</h3>
+                <form id="attendance-form" onsubmit="event.preventDefault();">
+                    <div class="form-group">
+                        <label for="entry-date">Session Date</label>
+                        <input type="date" id="entry-date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="total-slots">Total Classes Held Today</label>
+                        <input type="number" id="total-slots" class="form-control" min="1" inputmode="numeric" placeholder="e.g. 4" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="attended-slots">Classes Attended Today</label>
+                        <input type="number" id="attended-slots" class="form-control" min="0" inputmode="numeric" placeholder="e.g. 3" required>
+                    </div>
+                    <div class="btn-grid">
+                        <button type="submit" class="btn-primary" id="save-entry-btn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                        <button type="button" class="btn-secondary" id="clear-form-btn">Reset</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass-panel card" style="padding: 1.5rem;">
+                <h3 class="panel-heading"><i class="fa-solid fa-wand-magic-sparkles"></i> Analytics Engine</h3>
+                
+                <div class="calculator-box">
+                    <label style="font-size: 0.75rem; font-weight:700; color:var(--text-muted);">SAFE BUNK CALCULATOR</label>
+                    <div style="display: flex; gap: 8px; align-items:center; margin-top: 0.4rem;">
+                        <span style="font-size:0.85rem; font-weight:600;">Target:</span>
+                        <input type="number" id="bunk-target-pct" class="form-control" style="padding:0.3rem; min-height:36px; width: 70px; font-size:0.9rem;" min="1" max="99" value="75" inputmode="numeric">
+                        <span style="font-size:0.85rem; font-weight:600;">%</span>
+                    </div>
+                    <div class="calc-result" id="bunk-calculator-output">---</div>
+                </div>
+
+                <div class="calculator-box">
+                    <label style="font-size: 0.75rem; font-weight:700; color:var(--text-muted);">TARGET ACHIEVEMENT</label>
+                    <div style="display: flex; gap: 8px; align-items:center; margin-top: 0.4rem;">
+                        <span style="font-size:0.85rem; font-weight:600;">Desired:</span>
+                        <input type="number" id="target-attain-pct" class="form-control" style="padding:0.3rem; min-height:36px; width: 70px; font-size:0.9rem;" min="1" max="99" value="75" inputmode="numeric">
+                        <span style="font-size:0.85rem; font-weight:600;">%</span>
+                    </div>
+                    <div class="calc-result" id="target-calculator-output">---</div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="dashboard-main">
+            <div class="metrics-grid">
+                
+                <div class="glass-panel hero-metric-card">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.4rem;">
+                        <h2 style="font-size: 1.4rem; font-weight: 800;">Overview</h2>
+                        <div id="attendance-badge-container"></div>
+                    </div>
+                    
+                    <div class="progress-ring-container">
+                        <svg class="progress-ring" width="130" height="130">
+                            <circle class="progress-ring-circle" stroke="rgba(255,255,255,0.05)" stroke-width="10" fill="transparent" r="54" cx="65" cy="65"/>
+                            <circle id="progress-bar-dynamic" class="progress-ring-circle" stroke="url(#gradient-accent)" stroke-width="10" fill="transparent" r="54" cx="65" cy="65" stroke-dasharray="339.29" stroke-dashoffset="339.29" stroke-linecap="round"/>
+                            <defs>
+                                <linearGradient id="gradient-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#6366f1" />
+                                    <stop offset="100%" stop-color="#a855f7" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div class="progress-text">
+                            <span id="percentage-txt-value">0%</span>
+                            <span style="font-size:0.65rem; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Attendance</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel card">
+                    <span class="card-title">Attended</span>
+                    <span class="card-value" id="classes-attended-value">0</span>
+                    <i class="fa-solid fa-circle-check" style="position: absolute; bottom: 12px; right: 12px; font-size: 1.2rem; opacity: 0.1;"></i>
+                </div>
+
+                <div class="glass-panel card">
+                    <span class="card-title">Conducted</span>
+                    <span class="card-value" id="classes-conducted-value">0</span>
+                    <i class="fa-solid fa-layer-group" style="position: absolute; bottom: 12px; right: 12px; font-size: 1.2rem; opacity: 0.1;"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel history-section">
+                <h3 class="panel-heading"><i class="fa-solid fa-clock-rotate-left"></i> Attendance Logs</h3>
+                <div class="table-container" id="history-table-container">
+                    </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        Designed & Developed by Shivansh Gupta ❤️
+    </footer>
+    <div class="watermark">by Shivansh</div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        const AppState = {
+            logs: [],
+            theme: 'dark',
+
+            init: function() {
+                if (localStorage.getItem('attendx_theme')) {
+                    this.theme = localStorage.getItem('attendx_theme');
+                }
+                document.documentElement.setAttribute('data-theme', this.theme);
+
+                if (localStorage.getItem('attendx_logs')) {
+                    try {
+                        this.logs = JSON.parse(localStorage.getItem('attendx_logs'));
+                    } catch(e) {
+                        this.logs = [];
+                    }
+                } else {
+                    this.logs = [];
+                }
+            },
+
+            saveToStorage: function() {
+                localStorage.setItem('attendx_logs', JSON.stringify(this.logs));
+            },
+
+            addLog: function(date, total, attended) {
+                const newEntry = {
+                    id: 'entry-' + Date.now() + Math.random().toString(36).substr(2, 4),
+                    date: date,
+                    total: parseInt(total),
+                    attended: parseInt(attended)
+                };
+                this.logs.unshift(newEntry);
+                this.saveToStorage();
+            },
+
+            deleteLog: function(id) {
+                this.logs = this.logs.filter(entry => entry.id !== id);
+                this.saveToStorage();
+            },
+
+            getCalculatedMetrics: function() {
+                let totalConducted = 0;
+                let totalAttended = 0;
+                this.logs.forEach(e => {
+                    totalConducted += e.total;
+                    totalAttended += e.attended;
+                });
+                const percentage = totalConducted > 0 ? ((totalAttended / totalConducted) * 100) : 0;
+                return {
+                    totalConducted,
+                    totalAttended,
+                    percentage: parseFloat(percentage.toFixed(1))
+                };
+            }
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            AppState.init();
+            initThemeIcon();
+            
+            document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+            
+            refreshUI();
+
+            setTimeout(() => {
+                const loader = document.getElementById('loader-overlay');
+                loader.style.opacity = '0';
+                loader.style.visibility = 'hidden';
+            }, 500);
+
+            document.getElementById('theme-toggle').addEventListener('click', toggleThemeMode);
+            document.getElementById('attendance-form').addEventListener('submit', handleLogSubmission);
+            document.getElementById('clear-form-btn').addEventListener('click', () => {
+                document.getElementById('attendance-form').reset();
+                document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+                showToast("Inputs cleared.", "info");
+            });
+
+            document.getElementById('bunk-target-pct').addEventListener('input', runCalculators);
+            document.getElementById('target-attain-pct').addEventListener('input', runCalculators);
+        });
+
+        function refreshUI() {
+            const metrics = AppState.getCalculatedMetrics();
+            
+            document.getElementById('classes-attended-value').innerText = metrics.totalAttended;
+            document.getElementById('classes-conducted-value').innerText = metrics.totalConducted;
+            document.getElementById('percentage-txt-value').innerText = metrics.percentage + "%";
+
+            const circle = document.getElementById('progress-bar-dynamic');
+            const radius = circle.r.baseVal.value;
+            const circumference = radius * 2 * Math.PI;
+            const offset = circumference - (metrics.percentage / 100 * circumference);
+            circle.style.strokeDasharray = `${circumference} ${circumference}`;
+            circle.style.strokeDashoffset = offset;
+
+            const badgeContainer = document.getElementById('attendance-badge-container');
+            let badgeHTML = '';
+            
+            if (AppState.logs.length === 0) {
+                badgeHTML = `<span class="status-badge" style="background: rgba(156, 163, 175, 0.12); color: var(--text-muted); border: 1px solid var(--text-muted);"><i class="fa-solid fa-hourglass-start"></i> &nbsp; No Entries Yet</span>`;
+            } else if (metrics.percentage >= 90) {
+                badgeHTML = `<span class="status-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--color-excellent); border: 1px solid var(--color-excellent);"><i class="fa-solid fa-circle-check"></i> &nbsp; Excellent</span>`;
+            } else if (metrics.percentage >= 75) {
+                badgeHTML = `<span class="status-badge" style="background: rgba(59, 130, 246, 0.15); color: var(--color-safe); border: 1px solid var(--color-safe);"><i class="fa-solid fa-shield-halved"></i> &nbsp; Safe</span>`;
+            } else if (metrics.percentage >= 60) {
+                badgeHTML = `<span class="status-badge" style="background: rgba(245, 158, 11, 0.15); color: var(--color-warning); border: 1px solid var(--color-warning);"><i class="fa-solid fa-triangle-exclamation"></i> &nbsp; Warning</span>`;
+            } else {
+                badgeHTML = `<span class="status-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--color-danger); border: 1px solid var(--color-danger);"><i class="fa-solid fa-skull-crossbones"></i> &nbsp; Danger</span>`;
+            }
+            badgeContainer.innerHTML = badgeHTML;
+
+            renderLogsTable();
+            runCalculators();
+        }
+
+        function renderLogsTable() {
+            const container = document.getElementById('history-table-container');
+            if (AppState.logs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        <p style="font-weight: 600; font-size:0.95rem;">No historic data logs available</p>
+                        <p style="font-size: 0.8rem; margin-top:0.25rem;">Fill the form above to start tracking attendance.</p>
+                    </div>`;
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Conducted</th>
+                            <th>Attended</th>
+                            <th>Net Success</th>
+                            <th style="text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            AppState.logs.forEach(log => {
+                const ratio = log.total > 0 ? ((log.attended / log.total) * 100).toFixed(0) : 0;
+                let textClass = 'text-danger';
+                if(ratio >= 90) textClass = 'text-excellent';
+                else if(ratio >= 75) textClass = 'text-safe';
+                else if(ratio >= 60) textClass = 'text-warning';
+
+                const opt = { month: 'short', day: 'numeric', year: 'numeric' };
+                const dateParsed = new Date(log.date).toLocaleDateString('en-US', opt);
+
+                tableHTML += `
+                    <tr>
+                        <td style="font-weight: 600;">${dateParsed}</td>
+                        <td>${log.total} slots</td>
+                        <td style="color:#a855f7;">${log.attended} slots</td>
+                        <td class="${textClass}" style="font-weight: 700;">${ratio}%</td>
+                        <td style="text-align:right; display:flex; justify-content:flex-end;">
+                            <button class="btn-delete" onclick="executeLogDeletion('${log.id}')">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+
+            tableHTML += `</tbody></table>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function handleLogSubmission(e) {
+            const dateVal = document.getElementById('entry-date').value;
+            const totalVal = parseInt(document.getElementById('total-slots').value);
+            const attendedVal = parseInt(document.getElementById('attended-slots').value);
+
+            if (attendedVal > totalVal) {
+                showToast("Attended count cannot exceed total classes.", "danger");
+                return;
+            }
+
+            AppState.addLog(dateVal, totalVal, attendedVal);
+            showToast("Attendance logged successfully.", "success");
+            
+            document.getElementById('total-slots').value = '';
+            document.getElementById('attended-slots').value = '';
+            
+            refreshUI();
+        }
+
+        function executeLogDeletion(id) {
+            if(confirm("Delete this attendance log?")) {
+                AppState.deleteLog(id);
+                showToast("Log entry removed permanently.", "info");
+                refreshUI();
+            }
+        }
+
+        function runCalculators() {
+            const metrics = AppState.getCalculatedMetrics();
+            const A = metrics.totalAttended;
+            const C = metrics.totalConducted;
+
+            const bunkTargetInput = document.getElementById('bunk-target-pct').value;
+            const targetBunkPct = parseFloat(bunkTargetInput) / 100;
+            const bunkOutputBox = document.getElementById('bunk-calculator-output');
+
+            if(!bunkTargetInput || targetBunkPct <= 0 || targetBunkPct >= 1) {
+                bunkOutputBox.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-exclamation"></i> Invalid input value.</span>`;
+            } else if (C === 0) {
+                bunkOutputBox.innerHTML = `<span>Awaiting metric entry profiles.</span>`;
+            } else {
+                const maxBunkableClasses = Math.floor((A / targetBunkPct) - C);
+                if (maxBunkableClasses >= 0) {
+                    bunkOutputBox.innerHTML = `<span class="text-success"><i class="fa-solid fa-circle-check"></i> Safe to bunk: <strong>${maxBunkableClasses}</strong> classes.</span>`;
+                } else {
+                    bunkOutputBox.innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Attendance already below target.</span>`;
+                }
+            }
+
+            const attainTargetInput = document.getElementById('target-attain-pct').value;
+            const targetAttainPct = parseFloat(attainTargetInput) / 100;
+            const attainOutputBox = document.getElementById('target-calculator-output');
+
+            if(!attainTargetInput || targetAttainPct <= 0 || targetAttainPct >= 1) {
+                attainOutputBox.innerHTML = `<span class="text-danger"><i class="fa-solid fa-circle-exclamation"></i> Invalid input value.</span>`;
+            } else if (C === 0) {
+                attainOutputBox.innerHTML = `<span>Awaiting metric entry profiles.</span>`;
+            } else {
+                const netRequiredCurrentPercent = A / C;
+                if (netRequiredCurrentPercent >= targetAttainPct) {
+                    attainOutputBox.innerHTML = `<span class="text-excellent"><i class="fa-solid fa-circle-check"></i> Safe! Target criteria already satisfied.</span>`;
+                } else {
+                    const reqContinuousSessions = Math.ceil(((targetAttainPct * C) - A) / (1 - targetAttainPct));
+                    attainOutputBox.innerHTML = `<span class="text-warning"><i class="fa-solid fa-fire"></i> Attend next <strong>${reqContinuousSessions}</strong> classes non-stop.</span>`;
+                }
+            }
+        }
+
+        function toggleThemeMode() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const targetTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', targetTheme);
+            AppState.theme = targetTheme;
+            localStorage.setItem('attendx_theme', targetTheme);
+            initThemeIcon();
+            showToast(`Theme switched to ${targetTheme} mode.`, "info");
+        }
+
+        function initThemeIcon() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.getElementById('theme-toggle').querySelector('i');
+            icon.className = currentTheme === 'dark' ? "fa-solid fa-sun" : "fa-solid fa-moon";
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast`;
+            
+            let icon = '<i class="fa-solid fa-circle-info" style="color:#6366f1;"></i>';
+            if(type === "success") {
+                toast.style.borderLeftColor = "var(--color-excellent)";
+                icon = '<i class="fa-solid fa-circle-check" style="color:var(--color-excellent);"></i>';
+            } else if (type === "danger") {
+                toast.style.borderLeftColor = "var(--color-danger)";
+                icon = '<i class="fa-solid fa-circle-exclamation" style="color:var(--color-danger);"></i>';
+            }
+
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = "slideUp 0.3s reverse ease-in forwards";
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
